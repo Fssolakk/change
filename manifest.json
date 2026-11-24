@@ -1,0 +1,9 @@
+{
+  "name": "Günlük Görevler",
+  "short_name": "Görevler",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f5f4ef",
+  "theme_color": "#1D9E75",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
