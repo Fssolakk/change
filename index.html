@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1D9E75">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Günlük Görevler</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#f5f4ef;--card:#fff;--tx:#1f1f1f;--tx2:#6b6b6b;--bd:#e3e1da;--ac:#1D9E75;--soft:#ecebe5;--dn:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#141414;--card:#1f1f1f;--tx:#eee;--tx2:#9a9a9a;--bd:#333;--ac:#5DCAA5;--soft:#2a2a2a;--dn:#f08080}}
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:640px;background:var(--bg);color:var(--tx);font-family:system-ui,Roboto,sans-serif;font-size:16px;padding:14px 12px 40px}
+h1{font-size:20px;font-weight:500;margin:4px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:8px}
+.mets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.met{background:var(--soft);border-radius:10px;padding:10px}
+.met p{margin:0}.met .l{font-size:12px;color:var(--tx2)}.met .v{font-size:22px;font-weight:500}
+button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;min-height:40px}
+button:active{transform:scale(.97)}
+.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+.ib{border:none;background:transparent;color:var(--tx2);padding:6px 8px}
+input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;min-height:40px;min-width:0}
+input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--ac);flex:none}
+.bar{height:6px;background:var(--soft);border-radius:3px;overflow:hidden}
+.bar>div{height:100%;background:var(--ac)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cd{height:46px;border-radius:8px;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--bd)}
+.tm{font-family:ui-monospace,monospace;font-size:18px}
+.err{font-size:13px;color:var(--dn);margin:4px 0 0;display:none}
+.muted{font-size:13px;color:var(--tx2)}
+</style>
+</head>
+<body>
+<div id="app">
+<h1>Günlük Görevler</h1>
+<div class="row" style="margin-bottom:12px">
+<button data-a="prev">‹</button>
+<span id="dl" style="flex:1;text-align:center;font-weight:500"></span>
+<button data-a="next">›</button>
+<button data-a="today">Bugün</button>
+</div>
+<div class="mets">
+<div class="met"><p class="l">Günlük hedef</p><p class="v" id="m1">0%</p></div>
+<div class="met"><p class="l">Günün süresi</p><p class="v" id="m2">00:00</p></div>
+<div class="met"><p class="l">7 gün ort.</p><p class="v" id="m3">0%</p></div>
+</div>
+<div class="card">
+<input id="tn" placeholder="Görev adı, örn. Kitap okuma" style="width:100%;margin-bottom:8px">
+<div class="row">
+<input id="tt" type="number" min="1" step="1" value="15" inputmode="numeric" style="width:80px">
+<span class="muted">dakika hedef</span>
+<span style="flex:1"></span>
+<button class="pri" data-a="add">+ Görev ekle</button>
+</div>
+<p id="te" class="err">Bir görev adı yaz</p>
+</div>
+<div id="tasks"></div>
+<div class="card">
+<div class="row" style="margin-bottom:10px">
+<button class="ib" data-a="mprev">‹</button>
+<span id="ml" style="flex:1;text-align:center;font-weight:500"></span>
+<button class="ib" data-a="mnext">›</button>
+</div>
+<div class="cal muted" style="text-align:center;margin-bottom:4px"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
+<div id="cal" class="cal"></div>
+</div>
+<div class="card">
+<p style="margin:0 0 10px;font-weight:500">Haftalık durum</p>
+<div id="wk"></div>
+</div>
+<div class="card">
+<p style="margin:0 0 6px;font-weight:500">Yedek</p>
+<p class="muted" style="margin:0 0 8px">Veriler telefonunda saklanır. Telefon değiştirirken yedeği alıp yeni cihazda geri yükleyebilirsin.</p>
+<textarea id="bk" rows="3" style="width:100%;font-family:monospace;font-size:12px"></textarea>
+<div class="row" style="margin-top:8px"><button data-a="exp">Yedeği al</button><button data-a="imp">Yedekten yükle</button></div>
+<p id="be" class="err"></p>
+</div>
+</div>
+<script>
+var KEY='gunluk-gorevler-v1';
+function key(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function parse(k){var p=k.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])}
+function uid(){return Math.random().toString(36).slice(2,9)}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function $(i){return document.getElementById(i)}
+var TODAY=key(new Date());
+function load(){try{var d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.tasks)){if(!d.log)d.log={};if(!('run' in d))d.run=null;return d}}catch(e){}return null}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+var S=load()||{tasks:[{id:uid(),name:'Spor',target:15,from:TODAY,subs:[{id:uid(),name:'10 şınav'},{id:uid(),name:'10 halter kaldırma'}]}],log:{},run:null};
+var sel=TODAY,calM=parse(TODAY),pend=null;calM.setDate(1);
+function get(k,id){return(S.log[k]&&S.log[k][id])||{done:false,subs:{},sec:0}}
+function tl(k,id){S.log[k]=S.log[k]||{};return S.log[k][id]||(S.log[k][id]={done:false,subs:{},sec:0})}
+function active(k){return S.tasks.filter(function(t){return t.from<=k})}
+function tprog(t,k){var l=get(k,t.id);if(t.subs.length)return t.subs.filter(function(s){return l.subs[s.id]}).length/t.subs.length;return l.done?1:0}
+function pct(k){var a=active(k);if(!a.length)return null;return Math.round(a.reduce(function(s,t){return s+tprog(t,k)},0)/a.length*100)}
+function isRun(id,k){return S.run&&S.run.id===id&&S.run.k===k}
+function secs(t,k){var s=get(k,t.id).sec;if(isRun(t.id,k))s+=(Date.now()-S.run.st)/1000;return Math.floor(s)}
+function daySecs(k){return S.tasks.reduce(function(s,t){return s+secs(t,k)},0)}
+function fmt(s){var h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0')}
+function stop(){if(!S.run)return;tl(S.run.k,S.run.id).sec+=(Date.now()-S.run.st)/1000;S.run=null}
+function shift(k,n){var d=parse(k);d.setDate(d.getDate()+n);return key(d)}
+function setMonth(k){calM=parse(k);calM.setDate(1)}
+function render(){
+TODAY=key(new Date());
+$('dl').textContent=parse(sel).toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});
+var p=pct(sel);$('m1').textContent=(p==null?0:p)+'%';
+var ws=[],i;for(i=0;i<7;i++){var v=pct(shift(sel,-i));if(v!=null)ws.push(v)}
+$('m3').textContent=(ws.length?Math.round(ws.reduce(function(a,b){return a+b},0)/ws.length):0)+'%';
+var a=active(sel),h='';
+if(!a.length)h='<div class="card" style="text-align:center"><p style="margin:0;font-weight:500">İlk görevini ekle</p><p class="muted" style="margin:4px 0 0">Yukarıdan bir görev ve hedef süre gir.</p></div>';
+a.forEach(function(t){var l=get(sel,t.id),pr=tprog(t,sel),r=isRun(t.id,sel);
+h+='<div class="card"><div class="row">'+(t.subs.length?'<span class="muted" style="min-width:40px">'+Math.round(pr*100)+'%</span>':'<input type="checkbox" data-a="done" data-t="'+t.id+'" '+(l.done?'checked':'')+'>')+
+'<span style="flex:1;font-weight:500">'+esc(t.name)+'</span>'+
+(pend===t.id?'<button data-a="del" data-t="'+t.id+'" style="color:var(--dn)">Silinsin mi?</button>':'<button class="ib" data-a="ask" data-t="'+t.id+'">Sil</button>')+
+'</div><div class="row" style="margin-top:8px"><span class="tm" data-t="'+t.id+'"></span><span class="muted">/ '+t.target+' dk</span><span style="flex:1"></span>'+
+'<button class="'+(r?'':'pri')+'" data-a="tog" data-t="'+t.id+'">'+(r?'■ Durdur':'▶ Başlat')+'</button></div>'+
+'<div class="bar" style="margin:10px 0"><div style="width:'+Math.round(pr*100)+'%"></div></div>';
+t.subs.forEach(function(s){var d=!!l.subs[s.id];h+='<div class="row" style="padding:3px 0"><input type="checkbox" data-a="sub" data-t="'+t.id+'" data-s="'+s.id+'" '+(d?'checked':'')+'><span style="flex:1;'+(d?'text-decoration:line-through;color:var(--tx2)':'')+'">'+esc(s.name)+'</span><button class="ib" data-a="dsub" data-t="'+t.id+'" data-s="'+s.id+'">✕</button></div>'});
+h+='<div class="row" style="margin-top:6px"><input data-in="'+t.id+'" placeholder="Alt görev ekle, örn. 20 mekik" style="flex:1"><button data-a="asub" data-t="'+t.id+'">+</button></div></div>'});
+$('tasks').innerHTML=h;
+$('ml').textContent=calM.toLocaleDateString('tr-TR',{month:'long',year:'numeric'});
+var off=(calM.getDay()+6)%7,n=new Date(calM.getFullYear(),calM.getMonth()+1,0).getDate(),c='';
+for(i=0;i<off;i++)c+='<span></span>';
+for(i=1;i<=n;i++){var k=key(new Date(calM.getFullYear(),calM.getMonth(),i)),v2=k<=TODAY?pct(k):null;
+var bg=v2?'background:color-mix(in srgb, var(--ac) '+Math.round(10+v2*0.55)+'%, transparent);':'';
+c+='<div class="cd" data-a="pick" data-k="'+k+'" style="'+bg+(k===sel?'outline:2px solid var(--ac);':'')+'"><span style="font-weight:'+(k===TODAY?700:400)+'">'+i+'</span><span style="font-size:11px;color:var(--tx2)">'+(v2!=null?v2+'%':'')+'</span></div>'}
+$('cal').innerHTML=c;
+var w='';for(i=6;i>=0;i--){var k2=shift(sel,-i),v3=pct(k2);
+w+='<div class="row" style="font-size:13px;padding:4px 0"><span style="width:78px;color:var(--tx2)">'+parse(k2).toLocaleDateString('tr-TR',{weekday:'short',day:'numeric',month:'short'})+'</span><div class="bar" style="flex:1"><div style="width:'+(v3||0)+'%"></div></div><span style="width:38px;text-align:right">'+(v3==null?'–':v3+'%')+'</span><span style="width:58px;text-align:right;font-family:monospace;color:var(--tx2)">'+fmt(daySecs(k2))+'</span></div>'}
+$('wk').innerHTML=w;tick();save()}
+function tick(){document.querySelectorAll('.tm').forEach(function(e){var t=S.tasks.find(function(x){return x.id===e.dataset.t});if(!t)return;var s=secs(t,sel);e.textContent=fmt(s);e.style.color=s>=t.target*60?'var(--ac)':'var(--tx)'});$('m2').textContent=fmt(daySecs(sel))}
+setInterval(function(){if(S.run)tick()},1000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)render()});
+function addSub(id){var inp=document.querySelector('[data-in="'+id+'"]'),v=inp.value.trim();if(!v)return;S.tasks.find(function(t){return t.id===id}).subs.push({id:uid(),name:v});render();var n=document.querySelector('[data-in="'+id+'"]');if(n)n.focus()}
+function addTask(){var v=$('tn').value.trim();if(!v){$('te').style.display='block';return}var m=Math.max(1,Math.round(+$('tt').value||15));S.tasks.push({id:uid(),name:v,target:m,from:sel<TODAY?sel:TODAY,subs:[]});$('tn').value='';render()}
+$('tn').addEventListener('input',function(){$('te').style.display='none'});
+$('tn').addEventListener('keydown',function(e){if(e.key==='Enter')addTask()});
+$('bk').addEventListener('input',function(){$('be').style.display='none'});
+var app=$('app');
+app.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.dataset.in)addSub(e.target.dataset.in)});
+app.addEventListener('change',function(e){var a=e.target.dataset.a,t=e.target.dataset.t;
+if(a==='done'){tl(sel,t).done=e.target.checked;render()}
+if(a==='sub'){var l=tl(sel,t);if(e.target.checked)l.subs[e.target.dataset.s]=true;else delete l.subs[e.target.dataset.s];render()}});
+app.addEventListener('click',function(e){var b=e.target.closest('[data-a]');if(!b||b.tagName==='INPUT')return;var a=b.dataset.a,t=b.dataset.t;
+if(a!=='ask'&&a!=='del')pend=null;
+if(a==='prev'){sel=shift(sel,-1);setMonth(sel)}
+else if(a==='next'){sel=shift(sel,1);setMonth(sel)}
+else if(a==='today'){sel=key(new Date());setMonth(sel)}
+else if(a==='mprev')calM.setMonth(calM.getMonth()-1);
+else if(a==='mnext')calM.setMonth(calM.getMonth()+1);
+else if(a==='pick')sel=b.dataset.k;
+else if(a==='add'){addTask();return}
+else if(a==='tog'){var same=isRun(t,sel);stop();if(!same)S.run={id:t,k:sel,st:Date.now()}}
+else if(a==='ask')pend=t;
+else if(a==='del'){if(S.run&&S.run.id===t)S.run=null;S.tasks=S.tasks.filter(function(x){return x.id!==t});pend=null}
+else if(a==='dsub'){var tk=S.tasks.find(function(x){return x.id===t});tk.subs=tk.subs.filter(function(s){return s.id!==b.dataset.s})}
+else if(a==='asub'){addSub(t);return}
+else if(a==='exp'){stop();$('bk').value=JSON.stringify(S);$('be').style.display='none'}
+else if(a==='imp'){try{var d=JSON.parse($('bk').value);if(!d||!Array.isArray(d.tasks)||typeof d.log!=='object')throw 0;d.run=null;S=d;$('be').style.display='none'}catch(x){$('be').textContent='Yedek metni okunamadı. Tamamını kopyaladığından emin ol.';$('be').style.display='block';return}}
+render()});
+render();
+</script>
+</body>
+</html>
